@@ -31,6 +31,8 @@
         
         .tree-marker { transition: all 0.3s ease; }
         .tree-marker:hover { transform: scale(1.2); z-index: 1000 !important; }
+        
+        #xyCanvas { background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px; cursor: crosshair; }
     </style>
 </head>
 <body class="bg-slate-100 text-slate-800 h-screen flex flex-col overflow-hidden">
@@ -57,14 +59,17 @@
             
             <!-- Tabs Navigation -->
             <div class="flex border-b border-slate-200 shrink-0 bg-slate-50">
-                <button onclick="switchTab('centers')" id="tab-centers" class="flex-1 py-3 text-xs font-bold uppercase tracking-wide text-emerald-700 border-b-2 border-emerald-600 bg-white">
+                <button onclick="switchTab('centers')" id="tab-centers" class="flex-1 py-3 text-[10px] sm:text-xs font-bold uppercase tracking-wide text-emerald-700 border-b-2 border-emerald-600 bg-white">
                     1. Центри
                 </button>
-                <button onclick="switchTab('trees')" id="tab-trees" class="flex-1 py-3 text-xs font-bold uppercase tracking-wide text-slate-500 hover:text-emerald-600">
-                    2. Ввід дерев
+                <button onclick="switchTab('trees')" id="tab-trees" class="flex-1 py-3 text-[10px] sm:text-xs font-bold uppercase tracking-wide text-slate-500 hover:text-emerald-600">
+                    2. Ввід
                 </button>
-                <button onclick="switchTab('list')" id="tab-list" class="flex-1 py-3 text-xs font-bold uppercase tracking-wide text-slate-500 hover:text-emerald-600">
+                <button onclick="switchTab('list')" id="tab-list" class="flex-1 py-3 text-[10px] sm:text-xs font-bold uppercase tracking-wide text-slate-500 hover:text-emerald-600">
                     3. Таблиця
+                </button>
+                <button onclick="switchTab('xy')" id="tab-xy" class="flex-1 py-3 text-[10px] sm:text-xs font-bold uppercase tracking-wide text-slate-500 hover:text-emerald-600">
+                    4. Декартова (X/Y)
                 </button>
             </div>
 
@@ -171,7 +176,7 @@
                          <thead class="bg-slate-100 text-slate-500 sticky top-0 z-10 shadow-sm">
                              <tr>
                                  <th class="p-2 font-medium">№</th>
-                                 <th class="p-2 font-medium">Координати (Lat, Lon)</th>
+                                 <th class="p-2 font-medium">Lat / Lon</th>
                                  <th class="p-2 font-medium">Порода</th>
                                  <th class="p-2 font-medium">D (см)</th>
                                  <th class="p-2 font-medium">H (м)</th>
@@ -187,6 +192,43 @@
                     <button onclick="downloadAllData()" class="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded shadow-sm flex items-center justify-center gap-2">
                         <i data-lucide="download" class="w-4 h-4"></i> Експорт Excel (CSV)
                     </button>
+                 </div>
+            </div>
+
+            <!-- Tab Content: Cartesian (X/Y) -->
+            <div id="content-xy" class="hidden flex-grow flex flex-col overflow-y-auto p-4 space-y-4">
+                 <div class="bg-amber-50 p-4 rounded-lg border border-amber-200">
+                    <h3 class="text-sm font-bold text-amber-800 mb-2 flex items-center gap-2">
+                        <i data-lucide="axis-3d" class="w-4 h-4"></i> Трансформація координат
+                    </h3>
+                    <p class="text-[10px] text-amber-700 mb-3">
+                        Перетворення GPS (Lat/Lon) у локальну плоску систему (X/Y в метрах) з можливістю обертання для вирівнювання ділянки.
+                    </p>
+                    
+                    <div class="space-y-4">
+                        <div>
+                            <div class="flex justify-between items-center mb-1">
+                                <label class="text-xs font-bold text-slate-700">Кут повороту (Rotation): <span id="rotVal" class="text-emerald-600">0</span>°</label>
+                            </div>
+                            <input type="range" id="rotationSlider" min="-180" max="180" value="0" step="1" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-emerald-600" oninput="updateXYPreview()">
+                            <div class="flex justify-between text-[10px] text-slate-400 mt-1">
+                                <span>-180°</span>
+                                <span>0°</span>
+                                <span>+180°</span>
+                            </div>
+                        </div>
+
+                        <!-- Preview Canvas -->
+                        <div class="relative w-full aspect-square bg-white border rounded shadow-inner flex items-center justify-center overflow-hidden">
+                             <canvas id="xyCanvas" class="w-full h-full"></canvas>
+                             <div class="absolute top-2 left-2 text-[10px] text-slate-400 font-mono">Y axis ↑</div>
+                             <div class="absolute bottom-2 right-2 text-[10px] text-slate-400 font-mono">X axis →</div>
+                        </div>
+
+                        <button onclick="downloadXYData()" class="w-full py-2 bg-emerald-700 hover:bg-emerald-800 text-white text-sm font-bold rounded shadow-sm flex items-center justify-center gap-2">
+                            <i data-lucide="file-down" class="w-4 h-4"></i> Завантажити X/Y (.csv)
+                        </button>
+                    </div>
                  </div>
             </div>
 
@@ -239,6 +281,7 @@
         let trees = [];   
         let centerMode = 'absolute';
         let uniqueSpecies = new Set();
+        let xyCtx; // Canvas Context
 
         // --- Init ---
         window.onload = function() {
@@ -246,7 +289,17 @@
             initMap();
             loadFromStorage();
             
-            // Switch to trees tab if data exists
+            // Init Canvas
+            const canvas = document.getElementById('xyCanvas');
+            // Fix blurriness on high DPI
+            const dpr = window.devicePixelRatio || 1;
+            const rect = canvas.getBoundingClientRect();
+            canvas.width = rect.width * dpr;
+            canvas.height = rect.height * dpr;
+            xyCtx = canvas.getContext('2d');
+            xyCtx.scale(dpr, dpr);
+
+            // Switch logic
             if (centers.length > 0) {
                 renderCentersList();
                 updateDropdowns();
@@ -266,7 +319,7 @@
         // --- Storage Logic ---
         function saveToStorage() {
             const data = {
-                centers: centers.map(c => ({...c, marker: null})), // Don't save circular objects
+                centers: centers.map(c => ({...c, marker: null})), 
                 trees: trees.map(t => ({...t, marker: null, line: null}))
             };
             localStorage.setItem('marteloscope_v2', JSON.stringify(data));
@@ -282,26 +335,20 @@
 
             try {
                 const data = JSON.parse(raw);
-                
-                // Restore centers
                 data.centers.forEach(c => {
                     const centerObj = { ...c, marker: null };
                     centers.push(centerObj);
                     createCenterMarker(centerObj);
                 });
-
-                // Restore trees
                 data.trees.forEach(t => {
                     const treeObj = { ...t, marker: null, line: null };
                     trees.push(treeObj);
                     createTreeMarker(treeObj);
                 });
-
                 if (centers.length > 0) {
                     const last = centers[centers.length - 1];
                     map.setView([last.lat, last.lon], 18);
                 }
-                
                 updateTreeCount();
             } catch (e) {
                 console.error("Save file corrupted", e);
@@ -327,7 +374,6 @@
 
         function getMarkerRadius(dbh) {
             if (!dbh) return 4;
-            // Scale: 10cm -> 3px, 50cm -> 7px, 100cm -> 12px
             return Math.max(3, Math.min(15, dbh / 8)); 
         }
 
@@ -402,7 +448,6 @@
             centers.push(centerObj);
             createCenterMarker(centerObj);
             
-            // UI Updates
             nameInput.value = '';
             renderCentersList();
             updateDropdowns();
@@ -433,7 +478,6 @@
 
             lines.forEach(line => {
                 if (!line.trim()) return;
-                // Format: Num, Az, Dist, Species, DBH, Height
                 const p = line.split(/[,;\t]+/).map(s => s.trim());
                 if (p.length < 3) return;
 
@@ -467,7 +511,6 @@
                 updateLegend();
                 saveToStorage();
                 
-                // Fit bounds
                 const bounds = L.latLngBounds([center.marker.getLatLng()]);
                 trees.filter(t => t.centerId === centerId).forEach(t => bounds.extend(t.marker.getLatLng()));
                 map.fitBounds(bounds, {padding: [50, 50]});
@@ -494,7 +537,6 @@
                     </div>
                 `);
 
-            // Optional connection line
             const center = centers.find(c => c.id === t.centerId);
             if (center) {
                 t.line = L.polyline([[center.lat, center.lon], [t.lat, t.lon]], {
@@ -519,7 +561,126 @@
             }
         }
 
-        // --- Rendering Lists ---
+        // --- Cartesian Transformation Logic ---
+        
+        // Helper: Lat/Lon to Meters relative to origin
+        function latLonToMeters(lat, lon, originLat, originLon) {
+            const x = (lon - originLon) * (Math.PI/180) * R_earth * Math.cos(originLat * Math.PI/180);
+            const y = (lat - originLat) * (Math.PI/180) * R_earth;
+            return {x, y};
+        }
+
+        // Helper: Rotate Point around (0,0)
+        function rotatePoint(x, y, angleDeg) {
+            const rad = angleDeg * Math.PI / 180;
+            const cos = Math.cos(rad);
+            const sin = Math.sin(rad);
+            return {
+                x: x * cos - y * sin,
+                y: x * sin + y * cos
+            };
+        }
+
+        window.updateXYPreview = function() {
+            if (centers.length === 0) return;
+            
+            const canvas = document.getElementById('xyCanvas');
+            const rot = parseInt(document.getElementById('rotationSlider').value);
+            document.getElementById('rotVal').innerText = rot;
+            
+            const origin = centers[0]; // First center is origin (0,0)
+            const pts = [];
+
+            // Transform all points
+            trees.forEach(t => {
+                const m = latLonToMeters(t.lat, t.lon, origin.lat, origin.lon);
+                const r = rotatePoint(m.x, m.y, rot);
+                pts.push({ x: r.x, y: r.y, color: getSpeciesColor(t.species) });
+            });
+
+            // Draw
+            const w = canvas.clientWidth; // Use client dimensions for logic
+            const h = canvas.clientHeight;
+            
+            // Clear
+            xyCtx.clearRect(0, 0, canvas.width, canvas.height); // Use actual buffer dimensions
+            
+            // Need buffer dimensions for drawing operations since we scaled context
+            // But logic coordinates should be 0..w
+            
+            if(pts.length === 0) {
+                xyCtx.font = "12px sans-serif";
+                xyCtx.fillStyle = "#94a3b8";
+                xyCtx.textAlign = "center";
+                xyCtx.fillText("Немає дерев для відображення", w/2, h/2);
+                return;
+            }
+
+            // Find bounds to scale fit
+            let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+            pts.forEach(p => {
+                minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x);
+                minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y);
+            });
+
+            // Add padding
+            const pad = 5;
+            minX -= pad; maxX += pad; minY -= pad; maxY += pad;
+            
+            const rangeX = maxX - minX || 10;
+            const rangeY = maxY - minY || 10;
+            const scale = Math.min(w / rangeX, h / rangeY) * 0.9; // 90% fill
+            
+            const offsetX = (w - rangeX * scale) / 2;
+            const offsetY = (h - rangeY * scale) / 2;
+
+            // Draw axis
+            xyCtx.strokeStyle = "#e2e8f0";
+            xyCtx.beginPath();
+            // Need to map (0,0) to canvas
+            const zeroX = offsetX + (0 - minX) * scale;
+            const zeroY = h - (offsetY + (0 - minY) * scale); // Invert Y for canvas
+            
+            xyCtx.moveTo(zeroX, 0); xyCtx.lineTo(zeroX, h);
+            xyCtx.moveTo(0, zeroY); xyCtx.lineTo(w, zeroY);
+            xyCtx.stroke();
+
+            // Draw Points
+            pts.forEach(p => {
+                const cx = offsetX + (p.x - minX) * scale;
+                const cy = h - (offsetY + (p.y - minY) * scale);
+                
+                xyCtx.fillStyle = p.color;
+                xyCtx.beginPath();
+                xyCtx.arc(cx, cy, 3, 0, Math.PI * 2);
+                xyCtx.fill();
+            });
+        }
+
+        window.downloadXYData = function() {
+            if (trees.length === 0) { showToast("Немає даних"); return; }
+            
+            const rot = parseInt(document.getElementById('rotationSlider').value);
+            const origin = centers[0];
+            
+            let csv = "ID,Species,DBH,Height,Original_Lat,Original_Lon,X_Local,Y_Local,Rotated_X,Rotated_Y\n";
+            
+            trees.forEach(t => {
+                const m = latLonToMeters(t.lat, t.lon, origin.lat, origin.lon);
+                const r = rotatePoint(m.x, m.y, rot);
+                
+                csv += `"${t.num}","${t.species}",${t.dbh},${t.height},${t.lat},${t.lon},${m.x.toFixed(3)},${m.y.toFixed(3)},${r.x.toFixed(3)},${r.y.toFixed(3)}\n`;
+            });
+
+            const blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = `cartesian_trees_rot${rot}_${new Date().toISOString().slice(0,10)}.csv`;
+            link.click();
+        }
+
+
+        // --- Rendering Lists & Helpers ---
         function renderCentersList() {
             const list = document.getElementById('centersList');
             list.innerHTML = '';
@@ -544,21 +705,15 @@
         function renderTreeTable() {
             const tbody = document.getElementById('treesTableBody');
             tbody.innerHTML = '';
-            
-            // Sort by center then by tree number
             const sorted = [...trees].sort((a,b) => {
                 if(a.centerId !== b.centerId) return a.centerId.localeCompare(b.centerId);
                 return parseInt(a.num) - parseInt(b.num);
             });
-
             sorted.forEach(t => {
                 const cName = centers.find(c => c.id === t.centerId)?.name || '???';
                 const tr = document.createElement('tr');
                 tr.className = "hover:bg-slate-50 transition group";
-                
-                // Format coords nicely
                 const coordStr = `${t.lat.toFixed(6)}, ${t.lon.toFixed(6)}`;
-
                 tr.innerHTML = `
                     <td class="p-2 border-b font-mono text-slate-600">${t.num}</td>
                     <td class="p-2 border-b font-mono text-[10px] text-slate-500">${coordStr}</td>
@@ -575,15 +730,17 @@
             if(window.lucide) lucide.createIcons();
         }
 
-        // --- Helpers ---
         window.switchTab = function(tab) {
-            ['centers', 'trees', 'list'].forEach(t => {
+            ['centers', 'trees', 'list', 'xy'].forEach(t => {
                 document.getElementById(`content-${t}`).classList.add('hidden');
                 const btn = document.getElementById(`tab-${t}`);
-                btn.className = "flex-1 py-3 text-xs font-bold uppercase tracking-wide text-slate-500 hover:text-emerald-600";
+                btn.className = "flex-1 py-3 text-[10px] sm:text-xs font-bold uppercase tracking-wide text-slate-500 hover:text-emerald-600";
             });
             document.getElementById(`content-${tab}`).classList.remove('hidden');
-            document.getElementById(`tab-${tab}`).className = "flex-1 py-3 text-xs font-bold uppercase tracking-wide text-emerald-700 border-b-2 border-emerald-600 bg-white";
+            document.getElementById(`tab-${tab}`).className = "flex-1 py-3 text-[10px] sm:text-xs font-bold uppercase tracking-wide text-emerald-700 border-b-2 border-emerald-600 bg-white";
+            
+            // Trigger redraw on tab switch if needed
+            if(tab === 'xy') updateXYPreview();
         }
 
         function updateDropdowns() {
@@ -625,7 +782,6 @@
                 if(c.id === id) { map.removeLayer(c.marker); return false; }
                 return true;
             });
-            // remove trees
             for (let i = trees.length - 1; i >= 0; i--) {
                 if (trees[i].centerId === id) {
                     if(trees[i].marker) map.removeLayer(trees[i].marker);
