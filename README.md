@@ -33,6 +33,10 @@
         .tree-marker:hover { transform: scale(1.2); z-index: 1000 !important; }
         
         #xyCanvas { background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px; cursor: crosshair; }
+        
+        /* Remove arrows from number input */
+        input[type=number]::-webkit-inner-spin-button, 
+        input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
     </style>
 </head>
 <body class="bg-slate-100 text-slate-800 h-screen flex flex-col overflow-hidden">
@@ -217,11 +221,14 @@
                         </div>
                         
                         <div>
-                            <div class="flex justify-between items-center mb-1">
-                                <label class="text-xs font-bold text-slate-700">Кут повороту: <span id="rotVal" class="text-emerald-600">0</span>°</label>
+                            <label class="block text-[10px] font-bold text-amber-800 uppercase mb-1">Кут повороту (°)</label>
+                            <div class="flex items-center gap-2 mb-2">
+                                <button onclick="changeRotation(-1)" class="w-8 h-8 flex items-center justify-center bg-white border border-amber-300 hover:bg-amber-100 rounded text-amber-900 font-bold shadow-sm transition">-</button>
+                                <input type="number" id="rotationInput" value="0" min="-180" max="180" class="flex-grow h-8 text-sm text-center border border-amber-300 rounded font-mono focus:ring-2 focus:ring-amber-500 outline-none" oninput="syncRotation('input')">
+                                <button onclick="changeRotation(1)" class="w-8 h-8 flex items-center justify-center bg-white border border-amber-300 hover:bg-amber-100 rounded text-amber-900 font-bold shadow-sm transition">+</button>
                             </div>
-                            <input type="range" id="rotationSlider" min="-180" max="180" value="0" step="1" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-emerald-600" oninput="updateXYPreview()">
-                            <div class="flex justify-between text-[10px] text-slate-400 mt-1">
+                            <input type="range" id="rotationSlider" min="-180" max="180" value="0" step="1" class="w-full h-2 bg-amber-200 rounded-lg appearance-none cursor-pointer accent-amber-600" oninput="syncRotation('slider')">
+                            <div class="flex justify-between text-[10px] text-amber-400 mt-1 font-mono">
                                 <span>-180°</span>
                                 <span>0°</span>
                                 <span>+180°</span>
@@ -607,6 +614,40 @@
             };
         }
 
+        // Sync slider and input
+        window.syncRotation = function(source) {
+            const slider = document.getElementById('rotationSlider');
+            const input = document.getElementById('rotationInput');
+            let val = 0;
+
+            if (source === 'slider') {
+                val = parseInt(slider.value);
+                input.value = val;
+            } else {
+                val = parseInt(input.value);
+                if (isNaN(val)) val = 0;
+                // Clamp value
+                if (val > 180) val = 180;
+                if (val < -180) val = -180;
+                slider.value = val;
+            }
+            
+            // Update preview
+            updateXYPreview();
+        }
+
+        // Change rotation by delta
+        window.changeRotation = function(delta) {
+            const input = document.getElementById('rotationInput');
+            let val = parseInt(input.value) || 0;
+            val += delta;
+            if (val > 180) val = 180;
+            if (val < -180) val = -180;
+            
+            input.value = val;
+            syncRotation('input');
+        }
+
         window.updateXYPreview = function() {
             if (centers.length === 0) return;
             
@@ -615,8 +656,7 @@
             const rot = parseInt(document.getElementById('rotationSlider').value);
             const originId = document.getElementById('originSelect').value;
             
-            document.getElementById('rotVal').innerText = rot;
-            
+            // Fix canvas resolution (resize logic moved here from onload)
             const dpr = window.devicePixelRatio || 1;
             const rect = parent.getBoundingClientRect(); 
             
