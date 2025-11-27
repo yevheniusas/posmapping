@@ -64,7 +64,7 @@
             <!-- Tabs Navigation -->
             <div class="flex border-b border-slate-200 shrink-0 bg-slate-50 overflow-x-auto">
                 <button onclick="switchTab('centers')" id="tab-centers" class="min-w-[70px] flex-1 py-3 text-[10px] sm:text-xs font-bold uppercase tracking-wide text-emerald-700 border-b-2 border-emerald-600 bg-white">
-                    1. Центри
+                    1. Точки
                 </button>
                 <button onclick="switchTab('trees')" id="tab-trees" class="min-w-[70px] flex-1 py-3 text-[10px] sm:text-xs font-bold uppercase tracking-wide text-slate-500 hover:text-emerald-600">
                     2. Ввід
@@ -80,17 +80,29 @@
                 </button>
             </div>
 
-            <!-- Tab Content: Centers -->
+            <!-- Tab Content: Centers & Panoramas -->
             <div id="content-centers" class="flex-grow flex flex-col overflow-y-auto p-4 space-y-4">
                 <div class="bg-slate-50 p-4 rounded-lg border border-slate-200 shadow-sm">
                     <h3 class="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2">
-                        <i data-lucide="map-pin" class="w-4 h-4 text-emerald-600"></i> Додати центр ділянки
+                        <i data-lucide="map-pin" class="w-4 h-4 text-emerald-600"></i> Додати точку
                     </h3>
                     
-                    <!-- Toggle Mode -->
+                    <!-- Point Type Toggle -->
                     <div class="flex mb-3 bg-slate-200 p-1 rounded text-[10px]">
-                        <button onclick="setCenterMode('absolute')" id="mode-absolute" class="flex-1 py-1.5 rounded shadow-sm bg-white font-bold text-slate-800 transition">Координати / GPS</button>
-                        <button onclick="setCenterMode('relative')" id="mode-relative" class="flex-1 py-1.5 rounded text-slate-500 font-medium hover:text-slate-800 transition">Азимут від іншого</button>
+                        <button onclick="setPointType('center')" id="type-center" class="flex-1 py-1.5 rounded shadow-sm bg-white font-bold text-red-700 transition flex items-center justify-center gap-1">
+                            <span class="w-2 h-2 bg-red-500 rounded-full inline-block"></span> Центр
+                        </button>
+                        <button onclick="setPointType('panorama')" id="type-panorama" class="flex-1 py-1.5 rounded text-purple-700 font-medium hover:text-purple-900 transition flex items-center justify-center gap-1">
+                            <i data-lucide="camera" class="w-3 h-3"></i> Панорама
+                        </button>
+                    </div>
+
+                    <!-- Input Mode Toggle -->
+                    <div class="flex mb-3 border-t border-slate-200 pt-3">
+                        <div class="flex bg-slate-100 p-0.5 rounded text-[10px] w-full">
+                            <button onclick="setCenterMode('absolute')" id="mode-absolute" class="flex-1 py-1 rounded shadow-sm bg-white font-bold text-slate-800 transition">Координати / GPS</button>
+                            <button onclick="setCenterMode('relative')" id="mode-relative" class="flex-1 py-1 rounded text-slate-500 font-medium hover:text-slate-800 transition">Від іншого центру</button>
+                        </div>
                     </div>
 
                     <div class="space-y-3">
@@ -110,7 +122,7 @@
                         <!-- Relative Mode Inputs -->
                         <div id="inputs-relative" class="hidden space-y-2">
                             <div>
-                                <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Базова точка</label>
+                                <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Базова точка (Центр)</label>
                                 <select id="refCenterSelect" class="w-full p-2 border border-slate-300 rounded text-sm bg-white"></select>
                             </div>
                             <div class="grid grid-cols-2 gap-2">
@@ -123,16 +135,17 @@
                                     <input type="number" id="centerDist" step="any" placeholder="Метри" class="w-full p-2 text-sm border rounded">
                                 </div>
                             </div>
+                            <p class="text-[10px] text-slate-400 italic text-center">Для збігу точок введіть відстань 0</p>
                         </div>
 
-                        <button onclick="addCenter()" class="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded transition shadow-sm flex items-center justify-center gap-2 mt-2">
-                            <i data-lucide="plus" class="w-4 h-4"></i> Додати центр
+                        <button onclick="addPoint()" id="addPointBtn" class="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded transition shadow-sm flex items-center justify-center gap-2 mt-2">
+                            <i data-lucide="plus" class="w-4 h-4"></i> Додати точку
                         </button>
                     </div>
                 </div>
 
                 <div class="flex-grow">
-                    <h3 class="text-[10px] font-bold text-slate-400 uppercase mb-2 tracking-wider">Активні центри</h3>
+                    <h3 class="text-[10px] font-bold text-slate-400 uppercase mb-2 tracking-wider">Список точок</h3>
                     <ul id="centersList" class="space-y-2"></ul>
                 </div>
             </div>
@@ -246,9 +259,14 @@
                             <button onclick="downloadXYData()" class="w-full py-2 bg-emerald-700 hover:bg-emerald-800 text-white text-sm font-bold rounded shadow-sm flex items-center justify-center gap-2">
                                 <i data-lucide="file-down" class="w-4 h-4"></i> Завантажити X/Y (.csv)
                             </button>
-                            <button onclick="downloadCentersXYData()" class="w-full py-2 bg-amber-600 hover:bg-amber-700 text-white text-sm font-bold rounded shadow-sm flex items-center justify-center gap-2">
-                                <i data-lucide="map" class="w-4 h-4"></i> Експорт Центрів (X/Y)
-                            </button>
+                            <div class="grid grid-cols-2 gap-2">
+                                <button onclick="downloadCentersXYData()" class="w-full py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded shadow-sm flex items-center justify-center gap-1">
+                                    <i data-lucide="map" class="w-3 h-3"></i> Експорт Центрів
+                                </button>
+                                <button onclick="downloadPanoramasXYData()" class="w-full py-2 bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold rounded shadow-sm flex items-center justify-center gap-1">
+                                    <i data-lucide="camera" class="w-3 h-3"></i> Експорт Панорам
+                                </button>
+                            </div>
                         </div>
                     </div>
                  </div>
@@ -289,9 +307,13 @@
             <!-- Dynamic Legend -->
             <div id="mapLegend" class="absolute top-4 right-4 bg-white/95 backdrop-blur p-3 rounded-lg shadow-lg z-[400] min-w-[140px] border border-slate-200">
                 <h4 class="text-xs font-bold mb-2 text-slate-700 border-b pb-1">Легенда</h4>
-                <div class="flex items-center gap-2 mb-1.5">
+                <div class="flex items-center gap-2 mb-1">
                     <div class="w-3 h-3 rounded-full bg-red-500 border border-white shadow-sm"></div>
                     <span class="text-xs text-slate-600">Центр ділянки</span>
+                </div>
+                <div class="flex items-center gap-2 mb-1.5">
+                    <i data-lucide="camera" class="w-3 h-3 text-purple-600"></i>
+                    <span class="text-xs text-slate-600">Панорама</span>
                 </div>
                 <!-- Species items will be injected here -->
                 <div id="speciesLegend"></div>
@@ -322,10 +344,12 @@
         // --- State ---
         let map;
         let centers = []; 
+        let panoramas = []; // New state for panoramas
         let trees = [];   
         let centerMode = 'absolute';
+        let currentPointType = 'center'; // 'center' or 'panorama'
         let uniqueSpecies = new Set();
-        let speciesIdMap = {}; // Maps species name string to ID string
+        let speciesIdMap = {};
 
         // --- Init ---
         window.onload = function() {
@@ -333,7 +357,7 @@
             initMap();
             loadFromStorage();
             
-            if (centers.length > 0) {
+            if (centers.length > 0 || panoramas.length > 0) {
                 renderCentersList();
                 updateDropdowns();
                 renderTreeTable();
@@ -352,11 +376,12 @@
         // --- Storage Logic ---
         function saveToStorage() {
             const data = {
-                centers: centers.map(c => ({...c, marker: null})), 
+                centers: centers.map(c => ({...c, marker: null})),
+                panoramas: panoramas.map(p => ({...p, marker: null})), 
                 trees: trees.map(t => ({...t, marker: null, line: null})),
-                speciesIdMap: speciesIdMap // Save mapping too
+                speciesIdMap: speciesIdMap
             };
-            localStorage.setItem('marteloscope_v3', JSON.stringify(data));
+            localStorage.setItem('marteloscope_v4', JSON.stringify(data));
             
             const status = document.getElementById('storageStatus');
             status.innerText = "Збережено";
@@ -364,7 +389,10 @@
         }
 
         function loadFromStorage() {
-            const raw = localStorage.getItem('marteloscope_v3');
+            // Try loading v4 first, fall back to v3
+            let raw = localStorage.getItem('marteloscope_v4');
+            if (!raw) raw = localStorage.getItem('marteloscope_v3');
+            
             if (!raw) return;
 
             try {
@@ -374,6 +402,16 @@
                     centers.push(centerObj);
                     createCenterMarker(centerObj);
                 });
+                
+                // Load panoramas if they exist
+                if (data.panoramas) {
+                    data.panoramas.forEach(p => {
+                        const panoObj = { ...p, marker: null };
+                        panoramas.push(panoObj);
+                        createPanoramaMarker(panoObj);
+                    });
+                }
+
                 data.trees.forEach(t => {
                     const treeObj = { ...t, marker: null, line: null };
                     trees.push(treeObj);
@@ -394,6 +432,7 @@
 
         window.clearStorage = function() {
             if(confirm("Видалити всі дані і почати заново?")) {
+                localStorage.removeItem('marteloscope_v4');
                 localStorage.removeItem('marteloscope_v3');
                 location.reload();
             }
@@ -439,24 +478,49 @@
             });
         }
 
-        // --- Center Management ---
+        // --- Center & Panorama Management ---
+        window.setPointType = function(type) {
+            currentPointType = type;
+            const btnCenter = document.getElementById('type-center');
+            const btnPano = document.getElementById('type-panorama');
+            const addBtn = document.getElementById('addPointBtn');
+            const nameInput = document.getElementById('centerName');
+
+            if (type === 'center') {
+                btnCenter.classList.add('bg-white', 'shadow-sm', 'text-red-700');
+                btnCenter.classList.remove('text-red-500');
+                btnPano.classList.remove('bg-white', 'shadow-sm', 'text-purple-700');
+                btnPano.classList.add('text-purple-500');
+                addBtn.innerHTML = '<i data-lucide="plus" class="w-4 h-4"></i> Додати центр';
+                nameInput.placeholder = "Назва (напр. Сектор А)";
+            } else {
+                btnPano.classList.add('bg-white', 'shadow-sm', 'text-purple-700');
+                btnPano.classList.remove('text-purple-500');
+                btnCenter.classList.remove('bg-white', 'shadow-sm', 'text-red-700');
+                btnCenter.classList.add('text-red-500');
+                addBtn.innerHTML = '<i data-lucide="camera" class="w-4 h-4"></i> Додати панораму';
+                nameInput.placeholder = "Назва (напр. Панорама 1)";
+            }
+            lucide.createIcons();
+        }
+
         window.setCenterMode = function(mode) {
             centerMode = mode;
             document.getElementById('mode-absolute').className = mode === 'absolute' ? 
-                "flex-1 py-1.5 rounded shadow-sm bg-white font-bold text-slate-800 transition" : 
-                "flex-1 py-1.5 rounded text-slate-500 font-medium hover:text-slate-800 transition";
+                "flex-1 py-1 rounded shadow-sm bg-white font-bold text-slate-800 transition" : 
+                "flex-1 py-1 rounded text-slate-500 font-medium hover:text-slate-800 transition";
             
             document.getElementById('mode-relative').className = mode === 'relative' ? 
-                "flex-1 py-1.5 rounded shadow-sm bg-white font-bold text-slate-800 transition" : 
-                "flex-1 py-1.5 rounded text-slate-500 font-medium hover:text-slate-800 transition";
+                "flex-1 py-1 rounded shadow-sm bg-white font-bold text-slate-800 transition" : 
+                "flex-1 py-1 rounded text-slate-500 font-medium hover:text-slate-800 transition";
 
             document.getElementById('inputs-absolute').className = mode === 'absolute' ? "space-y-2" : "hidden space-y-2";
             document.getElementById('inputs-relative').className = mode === 'relative' ? "space-y-2" : "hidden space-y-2";
         }
 
-        window.addCenter = function() {
+        window.addPoint = function() {
             const nameInput = document.getElementById('centerName');
-            const name = nameInput.value || `Сектор ${centers.length + 1}`;
+            const name = nameInput.value || (currentPointType === 'center' ? `Сектор ${centers.length + 1}` : `Панорама ${panoramas.length + 1}`);
             let lat, lon;
 
             if (centerMode === 'absolute') {
@@ -475,21 +539,29 @@
 
             if (isNaN(lat) || isNaN(lon)) { showToast("Помилка координат"); return; }
 
-            const centerObj = {
-                id: Date.now().toString(),
-                name, lat, lon,
-                color: '#ef4444'
-            };
-
-            centers.push(centerObj);
-            createCenterMarker(centerObj);
+            if (currentPointType === 'center') {
+                const centerObj = {
+                    id: Date.now().toString(),
+                    name, lat, lon
+                };
+                centers.push(centerObj);
+                createCenterMarker(centerObj);
+                showToast("Центр додано");
+            } else {
+                const panoObj = {
+                    id: Date.now().toString(),
+                    name, lat, lon
+                };
+                panoramas.push(panoObj);
+                createPanoramaMarker(panoObj);
+                showToast("Панораму додано");
+            }
             
             nameInput.value = '';
             renderCentersList();
             updateDropdowns();
             map.setView([lat, lon], 19);
             saveToStorage();
-            showToast("Центр додано");
         }
 
         function createCenterMarker(c) {
@@ -499,7 +571,19 @@
                 iconSize: [14, 14], iconAnchor: [7, 7]
             });
             c.marker = L.marker([c.lat, c.lon], {icon}).addTo(map)
-                .bindPopup(`<b>${c.name}</b><br>${c.lat.toFixed(6)}, ${c.lon.toFixed(6)}`);
+                .bindPopup(`<b>${c.name}</b> (Центр)<br>${c.lat.toFixed(6)}, ${c.lon.toFixed(6)}`);
+        }
+
+        function createPanoramaMarker(p) {
+            const icon = L.divIcon({
+                className: 'custom-pano-icon',
+                html: `<div style="background-color:#9333ea; width:20px; height:20px; border-radius:50%; border:2px solid white; display:flex; align-items:center; justify-content:center; box-shadow: 0 1px 3px rgba(0,0,0,0.4);">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>
+                       </div>`,
+                iconSize: [20, 20], iconAnchor: [10, 10]
+            });
+            p.marker = L.marker([p.lat, p.lon], {icon}).addTo(map)
+                .bindPopup(`<b>${p.name}</b> (Панорама)<br>${p.lat.toFixed(6)}, ${p.lon.toFixed(6)}`);
         }
 
         // --- Tree Management ---
@@ -626,17 +710,14 @@
             } else {
                 val = parseInt(input.value);
                 if (isNaN(val)) val = 0;
-                // Clamp value
                 if (val > 180) val = 180;
                 if (val < -180) val = -180;
                 slider.value = val;
             }
             
-            // Update preview
             updateXYPreview();
         }
 
-        // Change rotation by delta
         window.changeRotation = function(delta) {
             const input = document.getElementById('rotationInput');
             let val = parseInt(input.value) || 0;
@@ -656,7 +737,6 @@
             const rot = parseInt(document.getElementById('rotationSlider').value);
             const originId = document.getElementById('originSelect').value;
             
-            // Fix canvas resolution (resize logic moved here from onload)
             const dpr = window.devicePixelRatio || 1;
             const rect = parent.getBoundingClientRect(); 
             
@@ -679,12 +759,21 @@
 
             const pts = [];
 
+            // Add Centers
             centers.forEach(c => {
                 const m = latLonToMeters(c.lat, c.lon, origin.lat, origin.lon);
                 const r = rotatePoint(m.x, m.y, rot);
                 pts.push({ x: r.x, y: r.y, color: '#ef4444', type: 'center', name: c.name });
             });
 
+            // Add Panoramas
+            panoramas.forEach(p => {
+                const m = latLonToMeters(p.lat, p.lon, origin.lat, origin.lon);
+                const r = rotatePoint(m.x, m.y, rot);
+                pts.push({ x: r.x, y: r.y, color: '#9333ea', type: 'panorama', name: p.name });
+            });
+
+            // Add Trees
             trees.forEach(t => {
                 const m = latLonToMeters(t.lat, t.lon, origin.lat, origin.lon);
                 const r = rotatePoint(m.x, m.y, rot);
@@ -697,7 +786,7 @@
                 ctx.font = "12px sans-serif";
                 ctx.fillStyle = "#94a3b8";
                 ctx.textAlign = "center";
-                ctx.fillText("Немає дерев для відображення", w/2, h/2);
+                ctx.fillText("Немає даних для відображення", w/2, h/2);
                 return;
             }
 
@@ -733,8 +822,20 @@
                 const cx = offsetX + (p.x - minX) * scale;
                 const cy = h - (offsetY + (p.y - minY) * scale);
                 ctx.fillStyle = p.color;
-                if(p.type === 'center') ctx.fillRect(cx - 3, cy - 3, 6, 6);
-                else { ctx.beginPath(); ctx.arc(cx, cy, 2, 0, Math.PI * 2); ctx.fill(); }
+                
+                if(p.type === 'center') {
+                    ctx.fillRect(cx - 3, cy - 3, 6, 6);
+                } else if(p.type === 'panorama') {
+                    // Triangle for Panorama
+                    ctx.beginPath();
+                    ctx.moveTo(cx, cy - 4);
+                    ctx.lineTo(cx + 4, cy + 3);
+                    ctx.lineTo(cx - 4, cy + 3);
+                    ctx.closePath();
+                    ctx.fill();
+                } else {
+                    ctx.beginPath(); ctx.arc(cx, cy, 2, 0, Math.PI * 2); ctx.fill(); 
+                }
             });
         }
 
@@ -757,6 +858,12 @@
                  csv += `"Center","${c.name}","-",0,0,${c.lat},${c.lon},${m.x.toFixed(3)},${m.y.toFixed(3)},${r.x.toFixed(3)},${r.y.toFixed(3)}\n`;
             });
 
+            panoramas.forEach(p => {
+                 const m = latLonToMeters(p.lat, p.lon, origin.lat, origin.lon);
+                 const r = rotatePoint(m.x, m.y, rot);
+                 csv += `"Panorama","${p.name}","-",0,0,${p.lat},${p.lon},${m.x.toFixed(3)},${m.y.toFixed(3)},${r.x.toFixed(3)},${r.y.toFixed(3)}\n`;
+            });
+
             trees.forEach(t => {
                 const m = latLonToMeters(t.lat, t.lon, origin.lat, origin.lon);
                 const r = rotatePoint(m.x, m.y, rot);
@@ -772,7 +879,6 @@
 
         window.downloadCentersXYData = function() {
             if (centers.length === 0) { showToast("Немає центрів"); return; }
-            
             const rot = parseInt(document.getElementById('rotationSlider').value);
             const originId = document.getElementById('originSelect').value;
             let origin = centers[0];
@@ -782,17 +888,38 @@
             }
             
             let csv = "Type,Name,Original_Lat,Original_Lon,X_Local,Y_Local,Rotated_X,Rotated_Y\n";
-            
             centers.forEach(c => {
                  const m = latLonToMeters(c.lat, c.lon, origin.lat, origin.lon);
                  const r = rotatePoint(m.x, m.y, rot);
                  csv += `"Center","${c.name}",${c.lat},${c.lon},${m.x.toFixed(3)},${m.y.toFixed(3)},${r.x.toFixed(3)},${r.y.toFixed(3)}\n`;
             });
-
             const blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' });
             const link = document.createElement("a");
             link.href = URL.createObjectURL(blob);
             link.download = `cartesian_centers_rot${rot}_${new Date().toISOString().slice(0,10)}.csv`;
+            link.click();
+        }
+
+        window.downloadPanoramasXYData = function() {
+            if (panoramas.length === 0) { showToast("Немає панорам"); return; }
+            const rot = parseInt(document.getElementById('rotationSlider').value);
+            const originId = document.getElementById('originSelect').value;
+            let origin = centers[0];
+            if(originId) {
+                const found = centers.find(c => c.id === originId);
+                if(found) origin = found;
+            }
+            
+            let csv = "Type,Name,Original_Lat,Original_Lon,X_Local,Y_Local,Rotated_X,Rotated_Y\n";
+            panoramas.forEach(p => {
+                 const m = latLonToMeters(p.lat, p.lon, origin.lat, origin.lon);
+                 const r = rotatePoint(m.x, m.y, rot);
+                 csv += `"Panorama","${p.name}",${p.lat},${p.lon},${m.x.toFixed(3)},${m.y.toFixed(3)},${r.x.toFixed(3)},${r.y.toFixed(3)}\n`;
+            });
+            const blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = `cartesian_panoramas_rot${rot}_${new Date().toISOString().slice(0,10)}.csv`;
             link.click();
         }
 
@@ -883,21 +1010,41 @@
         function renderCentersList() {
             const list = document.getElementById('centersList');
             list.innerHTML = '';
+            
+            // Render Centers
             centers.forEach(c => {
                 const li = document.createElement('li');
-                li.className = "bg-white p-2 rounded border border-slate-200 shadow-sm flex justify-between items-center";
+                li.className = "bg-white p-2 rounded border border-red-100 shadow-sm flex justify-between items-center";
                 li.innerHTML = `
-                    <div class="flex items-center gap-2 cursor-pointer" onclick="panToCenter('${c.id}')">
-                        <div class="w-2 h-2 bg-red-500 rotate-45"></div>
+                    <div class="flex items-center gap-2 cursor-pointer" onclick="panToPoint('${c.id}', 'center')">
+                        <div class="w-2 h-2 bg-red-500 rounded-full"></div>
                         <div>
                             <div class="text-xs font-bold text-slate-700">${c.name}</div>
-                            <div class="text-[10px] text-slate-400 font-mono">${c.lat.toFixed(5)}, ${c.lon.toFixed(5)}</div>
+                            <div class="text-[10px] text-slate-400 font-mono">Центр | ${c.lat.toFixed(5)}, ${c.lon.toFixed(5)}</div>
                         </div>
                     </div>
-                    <button onclick="removeCenter('${c.id}')" class="text-slate-300 hover:text-red-500"><i data-lucide="trash-2" class="w-3 h-3"></i></button>
+                    <button onclick="removePoint('${c.id}', 'center')" class="text-slate-300 hover:text-red-500"><i data-lucide="trash-2" class="w-3 h-3"></i></button>
                 `;
                 list.appendChild(li);
             });
+
+            // Render Panoramas
+            panoramas.forEach(p => {
+                const li = document.createElement('li');
+                li.className = "bg-white p-2 rounded border border-purple-100 shadow-sm flex justify-between items-center";
+                li.innerHTML = `
+                    <div class="flex items-center gap-2 cursor-pointer" onclick="panToPoint('${p.id}', 'panorama')">
+                        <i data-lucide="camera" class="w-3 h-3 text-purple-600"></i>
+                        <div>
+                            <div class="text-xs font-bold text-slate-700">${p.name}</div>
+                            <div class="text-[10px] text-slate-400 font-mono">Панорама | ${p.lat.toFixed(5)}, ${p.lon.toFixed(5)}</div>
+                        </div>
+                    </div>
+                    <button onclick="removePoint('${p.id}', 'panorama')" class="text-slate-300 hover:text-red-500"><i data-lucide="trash-2" class="w-3 h-3"></i></button>
+                `;
+                list.appendChild(li);
+            });
+
             if(window.lucide) lucide.createIcons();
         }
 
@@ -981,25 +1128,38 @@
              document.getElementById('csvInput').value = "1, 45, 12.5, Сосна, 32, 24\n2, 120, 8.3, Дуб, 44, 21\n3, 270, 15.0, Береза, 28, 19\n4, 310, 22.1, Ялина, 50, 28";
         }
         
-        window.removeCenter = function(id) {
-            if(!confirm("Видалити центр і всі його дерева?")) return;
-            centers = centers.filter(c => {
-                if(c.id === id) { map.removeLayer(c.marker); return false; }
-                return true;
-            });
-            for (let i = trees.length - 1; i >= 0; i--) {
-                if (trees[i].centerId === id) {
-                    if(trees[i].marker) map.removeLayer(trees[i].marker);
-                    if(trees[i].line) map.removeLayer(trees[i].line);
-                    trees.splice(i, 1);
+        window.removePoint = function(id, type) {
+            if(!confirm("Видалити точку?")) return;
+            
+            if (type === 'center') {
+                centers = centers.filter(c => {
+                    if(c.id === id) { map.removeLayer(c.marker); return false; }
+                    return true;
+                });
+                // Remove trees linked to this center
+                for (let i = trees.length - 1; i >= 0; i--) {
+                    if (trees[i].centerId === id) {
+                        if(trees[i].marker) map.removeLayer(trees[i].marker);
+                        if(trees[i].line) map.removeLayer(trees[i].line);
+                        trees.splice(i, 1);
+                    }
                 }
+            } else {
+                panoramas = panoramas.filter(p => {
+                    if(p.id === id) { map.removeLayer(p.marker); return false; }
+                    return true;
+                });
             }
+
             renderCentersList(); updateDropdowns(); renderTreeTable(); updateLegend(); saveToStorage();
         }
         
-        window.panToCenter = function(id) {
-            const c = centers.find(x => x.id === id);
-            if(c) map.setView([c.lat, c.lon], 19);
+        window.panToPoint = function(id, type) {
+            let p;
+            if (type === 'center') p = centers.find(x => x.id === id);
+            else p = panoramas.find(x => x.id === id);
+            
+            if(p) map.setView([p.lat, p.lon], 20);
         }
 
         window.zoomToTree = function(id) {
