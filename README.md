@@ -207,8 +207,15 @@
                     
                     <div class="space-y-4">
                         <div>
+                            <label class="block text-[10px] font-bold text-amber-800 uppercase mb-1">Центр координат (0,0)</label>
+                            <select id="originSelect" class="w-full p-2 border border-amber-300 rounded text-sm bg-white text-amber-900 font-medium" onchange="updateXYPreview()">
+                                <option value="">Оберіть центр...</option>
+                            </select>
+                        </div>
+                        
+                        <div>
                             <div class="flex justify-between items-center mb-1">
-                                <label class="text-xs font-bold text-slate-700">Кут повороту (Rotation): <span id="rotVal" class="text-emerald-600">0</span>°</label>
+                                <label class="text-xs font-bold text-slate-700">Кут повороту: <span id="rotVal" class="text-emerald-600">0</span>°</label>
                             </div>
                             <input type="range" id="rotationSlider" min="-180" max="180" value="0" step="1" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-emerald-600" oninput="updateXYPreview()">
                             <div class="flex justify-between text-[10px] text-slate-400 mt-1">
@@ -579,6 +586,8 @@
             const canvas = document.getElementById('xyCanvas');
             const parent = canvas.parentElement;
             const rot = parseInt(document.getElementById('rotationSlider').value);
+            const originId = document.getElementById('originSelect').value;
+            
             document.getElementById('rotVal').innerText = rot;
             
             // Fix canvas resolution (resize logic moved here from onload)
@@ -597,14 +606,38 @@
             const w = rect.width;
             const h = rect.height;
 
-            const origin = centers[0]; // First center is origin (0,0)
+            // Determine Origin
+            let origin = centers[0];
+            if(originId) {
+                const found = centers.find(c => c.id === originId);
+                if(found) origin = found;
+            }
+
             const pts = [];
 
-            // Transform all points
+            // 1. Add ALL centers to visualization
+            centers.forEach(c => {
+                const m = latLonToMeters(c.lat, c.lon, origin.lat, origin.lon);
+                const r = rotatePoint(m.x, m.y, rot);
+                pts.push({
+                    x: r.x, 
+                    y: r.y, 
+                    color: '#ef4444', 
+                    type: 'center', 
+                    name: c.name
+                });
+            });
+
+            // 2. Add ALL trees
             trees.forEach(t => {
                 const m = latLonToMeters(t.lat, t.lon, origin.lat, origin.lon);
                 const r = rotatePoint(m.x, m.y, rot);
-                pts.push({ x: r.x, y: r.y, color: getSpeciesColor(t.species) });
+                pts.push({ 
+                    x: r.x, 
+                    y: r.y, 
+                    color: getSpeciesColor(t.species), 
+                    type: 'tree' 
+                });
             });
 
             // Clear
@@ -657,31 +690,52 @@
                 const cy = h - (offsetY + (p.y - minY) * scale);
                 
                 ctx.fillStyle = p.color;
-                ctx.beginPath();
-                ctx.arc(cx, cy, 3, 0, Math.PI * 2);
-                ctx.fill();
+                
+                if(p.type === 'center') {
+                    // Draw square for centers
+                    ctx.fillRect(cx - 3, cy - 3, 6, 6);
+                } else {
+                    // Draw circle for trees
+                    ctx.beginPath();
+                    ctx.arc(cx, cy, 2, 0, Math.PI * 2);
+                    ctx.fill();
+                }
             });
         }
 
         window.downloadXYData = function() {
-            if (trees.length === 0) { showToast("Немає даних"); return; }
+            if (trees.length === 0 && centers.length === 0) { showToast("Немає даних"); return; }
             
             const rot = parseInt(document.getElementById('rotationSlider').value);
-            const origin = centers[0];
+            const originId = document.getElementById('originSelect').value;
             
-            let csv = "ID,Species,DBH,Height,Original_Lat,Original_Lon,X_Local,Y_Local,Rotated_X,Rotated_Y\n";
+            // Determine Origin
+            let origin = centers[0];
+            if(originId) {
+                const found = centers.find(c => c.id === originId);
+                if(found) origin = found;
+            }
             
+            let csv = "Type,Name_Num,Species,DBH,Height,Original_Lat,Original_Lon,X_Local,Y_Local,Rotated_X,Rotated_Y\n";
+            
+            // 1. Export Centers
+            centers.forEach(c => {
+                 const m = latLonToMeters(c.lat, c.lon, origin.lat, origin.lon);
+                 const r = rotatePoint(m.x, m.y, rot);
+                 csv += `"Center","${c.name}","-",0,0,${c.lat},${c.lon},${m.x.toFixed(3)},${m.y.toFixed(3)},${r.x.toFixed(3)},${r.y.toFixed(3)}\n`;
+            });
+
+            // 2. Export Trees
             trees.forEach(t => {
                 const m = latLonToMeters(t.lat, t.lon, origin.lat, origin.lon);
                 const r = rotatePoint(m.x, m.y, rot);
-                
-                csv += `"${t.num}","${t.species}",${t.dbh},${t.height},${t.lat},${t.lon},${m.x.toFixed(3)},${m.y.toFixed(3)},${r.x.toFixed(3)},${r.y.toFixed(3)}\n`;
+                csv += `"Tree","${t.num}","${t.species}",${t.dbh},${t.height},${t.lat},${t.lon},${m.x.toFixed(3)},${m.y.toFixed(3)},${r.x.toFixed(3)},${r.y.toFixed(3)}\n`;
             });
 
             const blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' });
             const link = document.createElement("a");
             link.href = URL.createObjectURL(blob);
-            link.download = `cartesian_trees_rot${rot}_${new Date().toISOString().slice(0,10)}.csv`;
+            link.download = `cartesian_all_rot${rot}_${new Date().toISOString().slice(0,10)}.csv`;
             link.click();
         }
 
@@ -755,6 +809,13 @@
             const opts = centers.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
             document.getElementById('activeCenterSelect').innerHTML = opts || '<option>Додайте центр</option>';
             document.getElementById('refCenterSelect').innerHTML = opts || '<option>Додайте центр</option>';
+            
+            // Also populate the new XY Origin Select
+            const currentOrigin = document.getElementById('originSelect').value;
+            document.getElementById('originSelect').innerHTML = opts || '<option value="">Додайте центр</option>';
+            if(currentOrigin && centers.find(c => c.id === currentOrigin)) {
+                document.getElementById('originSelect').value = currentOrigin;
+            }
         }
 
         function calculateDestination(lat1, lon1, az, dist) {
