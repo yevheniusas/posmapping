@@ -235,9 +235,14 @@
                              <div class="absolute bottom-2 right-2 text-[10px] text-slate-400 font-mono">X axis →</div>
                         </div>
 
-                        <button onclick="downloadXYData()" class="w-full py-2 bg-emerald-700 hover:bg-emerald-800 text-white text-sm font-bold rounded shadow-sm flex items-center justify-center gap-2">
-                            <i data-lucide="file-down" class="w-4 h-4"></i> Завантажити X/Y (.csv)
-                        </button>
+                        <div class="space-y-2">
+                            <button onclick="downloadXYData()" class="w-full py-2 bg-emerald-700 hover:bg-emerald-800 text-white text-sm font-bold rounded shadow-sm flex items-center justify-center gap-2">
+                                <i data-lucide="file-down" class="w-4 h-4"></i> Завантажити X/Y (.csv)
+                            </button>
+                            <button onclick="downloadCentersXYData()" class="w-full py-2 bg-amber-600 hover:bg-amber-700 text-white text-sm font-bold rounded shadow-sm flex items-center justify-center gap-2">
+                                <i data-lucide="map" class="w-4 h-4"></i> Експорт Центрів (X/Y)
+                            </button>
+                        </div>
                     </div>
                  </div>
             </div>
@@ -722,6 +727,32 @@
             const link = document.createElement("a");
             link.href = URL.createObjectURL(blob);
             link.download = `cartesian_all_rot${rot}_${new Date().toISOString().slice(0,10)}.csv`;
+            link.click();
+        }
+
+        window.downloadCentersXYData = function() {
+            if (centers.length === 0) { showToast("Немає центрів"); return; }
+            
+            const rot = parseInt(document.getElementById('rotationSlider').value);
+            const originId = document.getElementById('originSelect').value;
+            let origin = centers[0];
+            if(originId) {
+                const found = centers.find(c => c.id === originId);
+                if(found) origin = found;
+            }
+            
+            let csv = "Type,Name,Original_Lat,Original_Lon,X_Local,Y_Local,Rotated_X,Rotated_Y\n";
+            
+            centers.forEach(c => {
+                 const m = latLonToMeters(c.lat, c.lon, origin.lat, origin.lon);
+                 const r = rotatePoint(m.x, m.y, rot);
+                 csv += `"Center","${c.name}",${c.lat},${c.lon},${m.x.toFixed(3)},${m.y.toFixed(3)},${r.x.toFixed(3)},${r.y.toFixed(3)}\n`;
+            });
+
+            const blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = `cartesian_centers_rot${rot}_${new Date().toISOString().slice(0,10)}.csv`;
             link.click();
         }
 
