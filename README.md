@@ -281,7 +281,7 @@
         let trees = [];   
         let centerMode = 'absolute';
         let uniqueSpecies = new Set();
-        let xyCtx; // Canvas Context
+        // let xyCtx; // REMOVED global context to fix resize issue
 
         // --- Init ---
         window.onload = function() {
@@ -289,16 +289,8 @@
             initMap();
             loadFromStorage();
             
-            // Init Canvas
-            const canvas = document.getElementById('xyCanvas');
-            // Fix blurriness on high DPI
-            const dpr = window.devicePixelRatio || 1;
-            const rect = canvas.getBoundingClientRect();
-            canvas.width = rect.width * dpr;
-            canvas.height = rect.height * dpr;
-            xyCtx = canvas.getContext('2d');
-            xyCtx.scale(dpr, dpr);
-
+            // NOTE: Removed canvas init from here because element is hidden (size 0)
+            
             // Switch logic
             if (centers.length > 0) {
                 renderCentersList();
@@ -585,9 +577,26 @@
             if (centers.length === 0) return;
             
             const canvas = document.getElementById('xyCanvas');
+            const parent = canvas.parentElement;
             const rot = parseInt(document.getElementById('rotationSlider').value);
             document.getElementById('rotVal').innerText = rot;
             
+            // Fix canvas resolution (resize logic moved here from onload)
+            const dpr = window.devicePixelRatio || 1;
+            const rect = parent.getBoundingClientRect(); // Use parent size
+            
+            // Resize if dimensions mismatch (handling hidden tab issue)
+            if (canvas.width !== rect.width * dpr || canvas.height !== rect.height * dpr) {
+                canvas.width = rect.width * dpr;
+                canvas.height = rect.height * dpr;
+            }
+            
+            const ctx = canvas.getContext('2d');
+            ctx.scale(dpr, dpr);
+            
+            const w = rect.width;
+            const h = rect.height;
+
             const origin = centers[0]; // First center is origin (0,0)
             const pts = [];
 
@@ -598,21 +607,14 @@
                 pts.push({ x: r.x, y: r.y, color: getSpeciesColor(t.species) });
             });
 
-            // Draw
-            const w = canvas.clientWidth; // Use client dimensions for logic
-            const h = canvas.clientHeight;
-            
             // Clear
-            xyCtx.clearRect(0, 0, canvas.width, canvas.height); // Use actual buffer dimensions
-            
-            // Need buffer dimensions for drawing operations since we scaled context
-            // But logic coordinates should be 0..w
+            ctx.clearRect(0, 0, w, h);
             
             if(pts.length === 0) {
-                xyCtx.font = "12px sans-serif";
-                xyCtx.fillStyle = "#94a3b8";
-                xyCtx.textAlign = "center";
-                xyCtx.fillText("Немає дерев для відображення", w/2, h/2);
+                ctx.font = "12px sans-serif";
+                ctx.fillStyle = "#94a3b8";
+                ctx.textAlign = "center";
+                ctx.fillText("Немає дерев для відображення", w/2, h/2);
                 return;
             }
 
@@ -623,37 +625,41 @@
                 minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y);
             });
 
-            // Add padding
+            // Add padding (default to reasonable range if 1 point)
+            if(minX === Infinity) { minX = -10; maxX = 10; minY = -10; maxY = 10; }
+            if(minX === maxX) { minX -= 10; maxX += 10; }
+            if(minY === maxY) { minY -= 10; maxY += 10; }
+
             const pad = 5;
             minX -= pad; maxX += pad; minY -= pad; maxY += pad;
             
-            const rangeX = maxX - minX || 10;
-            const rangeY = maxY - minY || 10;
+            const rangeX = maxX - minX;
+            const rangeY = maxY - minY;
             const scale = Math.min(w / rangeX, h / rangeY) * 0.9; // 90% fill
             
             const offsetX = (w - rangeX * scale) / 2;
             const offsetY = (h - rangeY * scale) / 2;
 
             // Draw axis
-            xyCtx.strokeStyle = "#e2e8f0";
-            xyCtx.beginPath();
+            ctx.strokeStyle = "#e2e8f0";
+            ctx.beginPath();
             // Need to map (0,0) to canvas
             const zeroX = offsetX + (0 - minX) * scale;
             const zeroY = h - (offsetY + (0 - minY) * scale); // Invert Y for canvas
             
-            xyCtx.moveTo(zeroX, 0); xyCtx.lineTo(zeroX, h);
-            xyCtx.moveTo(0, zeroY); xyCtx.lineTo(w, zeroY);
-            xyCtx.stroke();
+            ctx.moveTo(zeroX, 0); ctx.lineTo(zeroX, h);
+            ctx.moveTo(0, zeroY); ctx.lineTo(w, zeroY);
+            ctx.stroke();
 
             // Draw Points
             pts.forEach(p => {
                 const cx = offsetX + (p.x - minX) * scale;
                 const cy = h - (offsetY + (p.y - minY) * scale);
                 
-                xyCtx.fillStyle = p.color;
-                xyCtx.beginPath();
-                xyCtx.arc(cx, cy, 3, 0, Math.PI * 2);
-                xyCtx.fill();
+                ctx.fillStyle = p.color;
+                ctx.beginPath();
+                ctx.arc(cx, cy, 3, 0, Math.PI * 2);
+                ctx.fill();
             });
         }
 
@@ -739,8 +745,10 @@
             document.getElementById(`content-${tab}`).classList.remove('hidden');
             document.getElementById(`tab-${tab}`).className = "flex-1 py-3 text-[10px] sm:text-xs font-bold uppercase tracking-wide text-emerald-700 border-b-2 border-emerald-600 bg-white";
             
-            // Trigger redraw on tab switch if needed
-            if(tab === 'xy') updateXYPreview();
+            // Trigger redraw on tab switch if needed (fixes hidden canvas size 0 issue)
+            if(tab === 'xy') {
+                 setTimeout(updateXYPreview, 50); 
+            }
         }
 
         function updateDropdowns() {
