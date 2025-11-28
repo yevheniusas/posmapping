@@ -126,7 +126,7 @@
                                 <select id="refCenterSelect" class="w-full p-2 border border-slate-300 rounded text-sm bg-white"></select>
                             </div>
                             <div class="grid grid-cols-2 gap-2">
-                                <div>
+                                <div class="relative">
                                     <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Азимут (°)</label>
                                     <input type="number" id="centerAz" step="any" placeholder="0-360" class="w-full p-2 text-sm border rounded">
                                 </div>
@@ -304,8 +304,8 @@
         <main class="flex-grow relative bg-slate-200">
             <div id="map" class="h-full w-full"></div>
             
-            <!-- Dynamic Legend -->
-            <div id="mapLegend" class="absolute top-4 right-4 bg-white/95 backdrop-blur p-3 rounded-lg shadow-lg z-[400] min-w-[140px] border border-slate-200">
+            <!-- Dynamic Legend (Moved to bottom left) -->
+            <div id="mapLegend" class="absolute bottom-6 left-6 bg-white/95 backdrop-blur p-3 rounded-lg shadow-lg z-[400] min-w-[140px] max-h-[300px] overflow-y-auto border border-slate-200">
                 <h4 class="text-xs font-bold mb-2 text-slate-700 border-b pb-1">Легенда</h4>
                 <div class="flex items-center gap-2 mb-1">
                     <div class="w-3 h-3 rounded-full bg-red-500 border border-white shadow-sm"></div>
@@ -367,10 +367,29 @@
 
         function initMap() {
             map = L.map('map').setView([50.4501, 30.5234], 6);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            
+            // Define Basemaps
+            const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 maxZoom: 22,
                 attribution: '© OpenStreetMap'
-            }).addTo(map);
+            });
+
+            // Esri Satellite (High quality, free for public use)
+            const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                maxZoom: 19,
+                attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
+            });
+
+            // Add default layer
+            osmLayer.addTo(map);
+
+            // Add Layer Control
+            const baseMaps = {
+                "Схема (OSM)": osmLayer,
+                "Супутник (Esri)": satelliteLayer
+            };
+            
+            L.control.layers(baseMaps, null, { position: 'topright' }).addTo(map);
         }
 
         // --- Storage Logic ---
