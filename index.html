@@ -37,6 +37,10 @@
         /* Remove arrows from number input */
         input[type=number]::-webkit-inner-spin-button, 
         input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+
+        /* Modal Styles */
+        #confirmModal { display: none; }
+        #confirmModal.active { display: flex; }
     </style>
 </head>
 <body class="bg-slate-100 text-slate-800 h-screen flex flex-col overflow-hidden">
@@ -291,6 +295,22 @@
                     <button onclick="downloadSylvoData()" class="w-full py-2 bg-indigo-700 hover:bg-indigo-800 text-white text-sm font-bold rounded shadow-sm flex items-center justify-center gap-2">
                         <i data-lucide="download" class="w-4 h-4"></i> Завантажити Sylvotech.csv
                     </button>
+
+                    <!-- New Search Section -->
+                    <div class="mt-4 border-t border-indigo-200 pt-4">
+                        <h4 class="text-xs font-bold text-indigo-800 mb-2 uppercase flex items-center gap-2">
+                            <i data-lucide="search" class="w-3 h-3"></i> Довідник ID порід
+                        </h4>
+                        <div class="relative">
+                            <input type="text" id="sylvoSearchInput" placeholder="Пошук (напр. Дуб)..." 
+                                   class="w-full p-2 pl-8 text-xs border border-indigo-200 rounded mb-2 focus:ring-1 focus:ring-indigo-500 outline-none"
+                                   onkeyup="filterSylvoReference()">
+                            <i data-lucide="search" class="w-3 h-3 text-indigo-400 absolute left-2.5 top-2.5"></i>
+                        </div>
+                        <div id="sylvoReferenceList" class="h-48 overflow-y-auto border border-indigo-100 rounded bg-white text-xs divide-y divide-slate-100 shadow-inner">
+                            <!-- Items will be injected here -->
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -327,6 +347,18 @@
         <i data-lucide="info" class="w-4 h-4 text-blue-400"></i> <span id="toastMsg">Notification</span>
     </div>
 
+    <!-- Custom Confirmation Modal -->
+    <div id="confirmModal" class="fixed inset-0 bg-black/50 z-[2000] hidden items-center justify-center backdrop-blur-sm">
+        <div class="bg-white p-6 rounded-lg shadow-2xl max-w-sm w-full mx-4 transform transition-all scale-100">
+            <h3 class="text-lg font-bold text-slate-800 mb-2">Підтвердження</h3>
+            <p id="confirmMsg" class="text-slate-600 mb-6 text-sm">Ви впевнені?</p>
+            <div class="flex justify-end gap-3">
+                <button onclick="closeConfirm()" class="px-4 py-2 text-slate-500 hover:bg-slate-100 rounded text-sm font-medium transition">Скасувати</button>
+                <button id="confirmYesBtn" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded text-sm font-bold shadow-sm transition">Підтвердити</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         // --- Configuration ---
         const speciesColors = {
@@ -338,6 +370,65 @@
             'осика': '#a3e635',  // lime-400
             'default': '#000000' // black
         };
+        
+        const sylvoRefData = [
+            {id: 12, name: "Береза повисла"},
+            {id: 40, name: "Берека"},
+            {id: 66, name: "Берест"},
+            {id: 57, name: "Бук звичайний (лісовий)"},
+            {id: 19, name: "Бук лісовий"},
+            {id: 36, name: "Верба"},
+            {id: 54, name: "Верба козяча"},
+            {id: 25, name: "Вільха"},
+            {id: 37, name: "Вільха сіра"},
+            {id: 14, name: "Вільха чорна"},
+            {id: 17, name: "В'яз"},
+            {id: 65, name: "В'яз гладкий"},
+            {id: 47, name: "Гіркокаштан звичайний"},
+            {id: 41, name: "Горіх волоський"},
+            {id: 38, name: "Горобина звичайна"},
+            {id: 10, name: "Горобина круглолиста"},
+            {id: 16, name: "Граб звичайний"},
+            {id: 64, name: "Груша звичайна"},
+            {id: 15, name: "Дуб"},
+            {id: 32, name: "Дуб пухнастий"},
+            {id: 33, name: "Дуб скельний"},
+            {id: 34, name: "Дуб червоний"},
+            {id: 58, name: "Дуб червоний"},
+            {id: 45, name: "Інші листяні породи"},
+            {id: 46, name: "Інші хвойні породи"},
+            {id: 13, name: "Каштан їстівний"},
+            {id: 23, name: "Клен"},
+            {id: 31, name: "Клен гостролистий"},
+            {id: 24, name: "Клен калинолистий"},
+            {id: 9, name: "Клен польовий"},
+            {id: 20, name: "Клен-явір"},
+            {id: 8, name: "Липа"},
+            {id: 48, name: "Липа серцелиста"},
+            {id: 49, name: "Липа широколиста"},
+            {id: 59, name: "Ліщина ведмежа"},
+            {id: 55, name: "Ліщина звичайна"},
+            {id: 3, name: "Модрина європейська"},
+            {id: 30, name: "Осика"},
+            {id: 62, name: "Падуб звичайний"},
+            {id: 5, name: "Псевдотсуга Мензіса (дугласія)"},
+            {id: 39, name: "Робінія звичайна"},
+            {id: 42, name: "Сосна Веймутова"},
+            {id: 28, name: "Сосна гірська"},
+            {id: 4, name: "Сосна звичайна"},
+            {id: 51, name: "Сосна чорна"},
+            {id: 52, name: "Сосна чорна"},
+            {id: 6, name: "Тис ягідний"},
+            {id: 61, name: "Тополя біла"},
+            {id: 22, name: "Туя"},
+            {id: 60, name: "Черемха звичайна"},
+            {id: 56, name: "Черемха пізня"},
+            {id: 11, name: "Черешня"},
+            {id: 63, name: "Яблуня лісова"},
+            {id: 1, name: "Ялина колюча"},
+            {id: 2, name: "Ялиця біла"},
+            {id: 7, name: "Ясен звичайний"}
+        ];
 
         const R_earth = 6371e3; 
 
@@ -345,7 +436,7 @@
         let map;
         let centers = []; 
         let panoramas = []; // New state for panoramas
-        let trees = [];   
+        let trees = [];    
         let centerMode = 'absolute';
         let currentPointType = 'center'; // 'center' or 'panorama'
         let uniqueSpecies = new Set();
@@ -363,6 +454,7 @@
                 renderTreeTable();
                 updateLegend();
             }
+            renderSylvoReference(); // Init list
         };
 
         function initMap() {
@@ -449,12 +541,30 @@
             }
         }
 
+        // --- Custom Confirmation Logic ---
+        let confirmCallback = null;
+        window.showConfirm = function(msg, callback) {
+            document.getElementById('confirmMsg').innerText = msg;
+            confirmCallback = callback;
+            document.getElementById('confirmModal').classList.add('active');
+        }
+
+        window.closeConfirm = function() {
+            document.getElementById('confirmModal').classList.remove('active');
+            confirmCallback = null;
+        }
+
+        document.getElementById('confirmYesBtn').onclick = function() {
+            if(confirmCallback) confirmCallback();
+            closeConfirm();
+        };
+
         window.clearStorage = function() {
-            if(confirm("Видалити всі дані і почати заново?")) {
+            showConfirm("Видалити всі дані і почати заново?", function() {
                 localStorage.removeItem('marteloscope_v4');
                 localStorage.removeItem('marteloscope_v3');
                 location.reload();
-            }
+            });
         }
 
         // --- Visual Logic ---
@@ -1024,6 +1134,42 @@
             link.click();
         }
 
+        // --- Sylvo Reference Logic ---
+        function filterSylvoReference() {
+            const input = document.getElementById('sylvoSearchInput');
+            renderSylvoReference(input.value);
+        }
+
+        function renderSylvoReference(filterText = "") {
+            const list = document.getElementById('sylvoReferenceList');
+            if(!list) return;
+            list.innerHTML = "";
+            
+            const lowerFilter = filterText.toLowerCase();
+            const filtered = sylvoRefData.filter(item => 
+                item.name.toLowerCase().includes(lowerFilter) || 
+                item.id.toString().includes(lowerFilter)
+            );
+
+            if(filtered.length === 0) {
+                list.innerHTML = '<div class="p-2 text-slate-400 italic text-center">Нічого не знайдено</div>';
+                return;
+            }
+
+            filtered.forEach(item => {
+                const div = document.createElement('div');
+                div.className = "flex justify-between items-center p-2 hover:bg-slate-50 transition cursor-pointer";
+                div.onclick = () => {
+                    navigator.clipboard.writeText(item.id);
+                    showToast(`ID ${item.id} скопійовано`);
+                };
+                div.innerHTML = `
+                    <span class="font-medium text-slate-700 truncate mr-2">${item.name}</span>
+                    <span class="font-mono font-bold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-100 flex-shrink-0">${item.id}</span>
+                `;
+                list.appendChild(div);
+            });
+        }
 
         // --- Rendering Lists & Helpers ---
         function renderCentersList() {
@@ -1105,7 +1251,11 @@
             document.getElementById(`tab-${tab}`).className = "min-w-[70px] flex-1 py-3 text-[10px] sm:text-xs font-bold uppercase tracking-wide text-emerald-700 border-b-2 border-emerald-600 bg-white";
             
             if(tab === 'xy') setTimeout(updateXYPreview, 50);
-            if(tab === 'sylvo') updateSylvoUI();
+            if(tab === 'sylvo') {
+                updateSylvoUI();
+                renderSylvoReference();
+                if(window.lucide) lucide.createIcons();
+            }
         }
 
         function updateDropdowns() {
@@ -1148,29 +1298,29 @@
         }
         
         window.removePoint = function(id, type) {
-            if(!confirm("Видалити точку?")) return;
-            
-            if (type === 'center') {
-                centers = centers.filter(c => {
-                    if(c.id === id) { map.removeLayer(c.marker); return false; }
-                    return true;
-                });
-                // Remove trees linked to this center
-                for (let i = trees.length - 1; i >= 0; i--) {
-                    if (trees[i].centerId === id) {
-                        if(trees[i].marker) map.removeLayer(trees[i].marker);
-                        if(trees[i].line) map.removeLayer(trees[i].line);
-                        trees.splice(i, 1);
+            showConfirm("Видалити точку?", function() {
+                if (type === 'center') {
+                    centers = centers.filter(c => {
+                        if(c.id === id) { map.removeLayer(c.marker); return false; }
+                        return true;
+                    });
+                    // Remove trees linked to this center
+                    for (let i = trees.length - 1; i >= 0; i--) {
+                        if (trees[i].centerId === id) {
+                            if(trees[i].marker) map.removeLayer(trees[i].marker);
+                            if(trees[i].line) map.removeLayer(trees[i].line);
+                            trees.splice(i, 1);
+                        }
                     }
+                } else {
+                    panoramas = panoramas.filter(p => {
+                        if(p.id === id) { map.removeLayer(p.marker); return false; }
+                        return true;
+                    });
                 }
-            } else {
-                panoramas = panoramas.filter(p => {
-                    if(p.id === id) { map.removeLayer(p.marker); return false; }
-                    return true;
-                });
-            }
 
-            renderCentersList(); updateDropdowns(); renderTreeTable(); updateLegend(); saveToStorage();
+                renderCentersList(); updateDropdowns(); renderTreeTable(); updateLegend(); saveToStorage();
+            });
         }
         
         window.panToPoint = function(id, type) {
